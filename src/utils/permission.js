@@ -7,19 +7,13 @@ import store from '@/store'
  */
 export default function checkPermission(value) {
   if (value && value instanceof Array && value.length > 0) {
-    const perms = store.getters && store.getters.roles
-    const permissionperms = value
-    if (roles.includes('admin')) {
-      return true
-    } // 如果是超管,都可以操作
-    const hasPermission = roles.some(perm => {
-      return permissionperms.includes(perm)
-    })
+    const roles = store.getters && store.getters.roles
+    const permissionRoles = value
 
-    if (!hasPermission) {
-      return false
-    }
-    return true
+    const hasPermission = roles.some(role => {
+      return permissionRoles.includes(role)
+    })
+    return hasPermission
   } else {
     console.error(`need roles! Like v-permission="['admin','editor']"`)
     return false

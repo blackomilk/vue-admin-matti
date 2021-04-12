@@ -13,13 +13,3 @@ export function setToken(token) {
 export function removeToken() {
   return Cookies.remove(TokenKey)
 }
-
-// export function refreshToken() {
-//   let token = getToken()
-//   let data = {"token": token}
-//   return request({
-//     url: '/token/refresh/',
-//     method: 'post',
-//     data
-//   })
-// }

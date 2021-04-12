@@ -89,6 +89,42 @@ export const asyncRoutes = [
     ]
   },
   {
+    path: "/upload-image",
+    component: Layout,
+    redirect: "upload-image/upload",
+    name: "upload-image",
+    meta: { title: "upload-image", icon: "education", perms: ["upload"] },
+    children: [
+      {
+        path: "upload",
+        name: "upload",
+        component: () => import("@/views/upload-image/upload.vue"),
+        meta: { title: "upload", icon: "education", perms: ["upload"] }
+      }
+    ]
+  },
+  {
+    path: "/excel",
+    component: Layout,
+    redirect: "excel/export-excel",
+    name: "excel",
+    meta: { title: "excel", icon: "example", perms: ["excel"] },
+    children: [
+      {
+        path: "export-excel",
+        name: "export-excel",
+        component: () => import("@/views/excel/export-excel.vue"),
+        meta: { title: "export-excel", icon: "excel", perms: ["export-excel"] }
+      },
+      {
+        path: "upload-excel",
+        name: "upload-excel",
+        component: () => import("@/views/excel/upload-excel.vue"),
+        meta: { title: "upload-excel", icon: "excel", perms: ["upload-excel"] }
+      }
+    ]
+  },
+  {
     path: "/ops_agent",
     component: Layout,
     redirect: "ops_agent/index",
