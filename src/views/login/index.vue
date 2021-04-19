@@ -1,5 +1,8 @@
 <template>
   <div class="login-container">
+    <div class="title-container">
+      <h3 class="title">育学园运维系统登陆</h3>
+    </div>
     <el-form
       ref="loginForm"
       :model="loginForm"
@@ -7,11 +10,8 @@
       class="login-form"
       auto-complete="on"
       label-position="left"
+      v-if="!dingLogin"
     >
-      <div class="title-container">
-        <h3 class="title">系统登陆</h3>
-      </div>
-
       <el-form-item prop="username">
         <span class="svg-container">
           <svg-icon icon-class="user" />
@@ -48,7 +48,14 @@
           />
         </span>
       </el-form-item>
-
+      <div class="dingding" @click="handleDingLogin">
+        <el-link
+          icon="el-icon-data-board"
+          class="ding-icon"
+          style="color: #fff;"
+        />
+        钉钉扫码登录
+      </div>
       <el-button
         :loading="loading"
         type="primary"
@@ -56,17 +63,28 @@
         @click.native.prevent="handleLogin"
         >登陆</el-button
       >
-
       <!-- <div class="tips">
         <span style="margin-right:20px;">username: admin</span>
         <span> password: any</span>
       </div> -->
     </el-form>
+    <div v-else class="dingCode">
+      <div
+        id="ding-login"
+        style="margin:0px;padding:0px;width:350px;height:350px"
+      ></div>
+      <div style="text-align:center">
+        <el-button type="primary" style="margin: 0" @click="handlePassLogin">
+          返回用户密码登录
+        </el-button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 // import { validUsername } from '@/utils/validate'
+import { dingLogin } from "@/api/user";
 
 export default {
   name: "Login",
@@ -87,8 +105,9 @@ export default {
     };
     return {
       loginForm: {
-        username: "admin",
-        password: "111111"
+        username: "",
+        password: "",
+        token: ""
       },
       loginRules: {
         username: [{ required: true, trigger: "blur", message: "请输入账户" }],
@@ -104,7 +123,12 @@ export default {
       loading: false,
       passwordType: "password",
       redirect: undefined,
-      otherQuery: {}
+      aa: "",
+      dingLogin: false,
+      code: "",
+      http_url: encodeURIComponent(
+        `https://oapi.dingtalk.com/connect/oauth2/sns_authorize?appid=dingoarnzmw1gf5inmjd94&response_type=code&scope=snsapi_login&state=STATE&redirect_uri=http://localhost:9528/login`
+      )
     };
   },
   watch: {
@@ -112,14 +136,81 @@ export default {
       handler: function(route) {
         const query = route.query;
         if (query) {
-          this.redirect = query.redirect;
-          this.otherQuery = this.getOtherQuery(query);
+          this.redirect = query.redirect_uri;
+          // this.otherQuery = this.getOtherQuery(query);
         }
       },
       immediate: true
     }
   },
+  mounted() {
+    this.code = this.getQueryString("code");
+    if (this.code) {
+      this.ddLogin();
+    }
+    var handleMessage = function(event) {
+      var origin = event.origin;
+      if (origin == "https://login.dingtalk.com") {
+        //判断是否来自ddLogin扫码事件。
+        var loginTmpCode = event.data;
+        //获取到loginTmpCode后就可以在这里构造跳转链接进行跳转了
+        // window.location.href = "" + loginTmpCode;
+        location.href = `https://oapi.dingtalk.com/connect/oauth2/sns_authorize?appid=dingoarnzmw1gf5inmjd94&response_type=code&scope=snsapi_login&state=STATE&redirect_uri=http://localhost:9528/login&loginTmpCode=${loginTmpCode}`;
+      }
+    };
+    if (typeof window.addEventListener != "undefined") {
+      window.addEventListener("message", handleMessage, false);
+    } else if (typeof window.attachEvent != "undefined") {
+      window.attachEvent("onmessage", handleMessage);
+    }
+  },
   methods: {
+    ddLogin() {
+      dingLogin(this.code).then(res => {
+        if (res.data.user_info) {
+          this.loginForm.token = res.data.user_info;
+          this.$store
+            .dispatch("user/login", this.loginForm)
+            .then(() => {
+              // debugger
+              this.$router.push({
+                path: this.redirect || "/",
+                query: this.otherQuery
+              });
+              this.loading = false;
+            })
+            .catch(() => {
+              this.loading = false;
+            });
+        } else {
+          console.log("error submit!!");
+          return false;
+        }
+      });
+    },
+    getQueryString(nameStr) {
+      var reg = new RegExp("(^|&)" + nameStr + "=([^&]*)(&|$)");
+      var r = window.location.search.substr(1).match(reg);
+      if (r != null) {
+        return decodeURIComponent(r[2]);
+      } else {
+        return null;
+      }
+    },
+    handlePassLogin() {
+      this.dingLogin = false;
+    },
+    handleDingLogin() {
+      this.dingLogin = true;
+      this.$nextTick(() => {
+        //钉钉登录
+        let obj = DDLogin({
+          id: "ding-login",
+          goto: this.http_url,
+          style: "border:none;background-color: #fff"
+        });
+      });
+    },
     showPwd() {
       if (this.passwordType === "password") {
         this.passwordType = "";
@@ -129,7 +220,15 @@ export default {
       this.$nextTick(() => {
         this.$refs.password.focus();
       });
+      let box = document.getElementById("ding-login");
+      box.querySelector("iframe").style.position = "absolute";
+      box.querySelector("iframe").style.top = "0";
+      box.querySelector("iframe").style.bottom = "0";
+      box.querySelector("iframe").style.left = "0";
+      box.querySelector("iframe").style.right = "0";
+      box.querySelector("iframe").style.margin = "auto";
     },
+
     handleLogin() {
       this.$refs.loginForm.validate(valid => {
         if (valid) {
@@ -152,14 +251,6 @@ export default {
           return false;
         }
       });
-    },
-    getOtherQuery(query) {
-      return Object.keys(query).reduce((acc, cur) => {
-        if (cur !== "redirect") {
-          acc[cur] = query[cur];
-        }
-        return acc;
-      }, {});
     }
   }
 };
@@ -178,7 +269,22 @@ $cursor: #fff;
     color: $cursor;
   }
 }
-
+.dingding {
+  font-size: 0.25rem;
+  color: #fff;
+  cursor: pointer;
+  text-align: right;
+}
+.dingding:hover {
+  color: skyblue;
+}
+.dingCode {
+  width: 350px;
+  height: 300px;
+}
+.dingCode img {
+  max-width: 100%;
+}
 /* reset element-ui css */
 .login-container {
   .el-input {
@@ -222,13 +328,17 @@ $light_gray: #eee;
   width: 100%;
   background-color: $bg;
   overflow: hidden;
+  padding-top: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
 
   .login-form {
     position: relative;
     width: 520px;
     max-width: 100%;
-    padding: 160px 35px 0;
-    margin: 0 auto;
+    padding: 15px 35px 0;
     overflow: hidden;
   }
 
